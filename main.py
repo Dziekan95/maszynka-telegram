@@ -1,68 +1,62 @@
 import logging
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
-from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
+import pytz
+from apscheduler.schedulers.background import BackgroundScheduler
+from telegram.ext import Updater, CommandHandler
 
-# Token Twojego bota
-BOT_TOKEN = "7923832536:AAGiHmjAlbeVE-D0sN9rM3StPWfssq43q4U"
+# 🔐 Wklej tutaj swój token bota Telegram
+TOKEN = "7923832536:AAGiHmjAlbeVE-D0sN9rM3StPWfssq43q4U"
 
-# Twoje ID Telegram (czat ID)
-CHAT_ID = 8044783655  # Zmienimy na Twój numer w KROKU 7
+# 💬 Wklej tutaj swoje CHAT_ID (np. 123456789)
+CHAT_ID = 8044783655
 
-# Ustawienia logowania
+# 📋 Konfiguracja logowania
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 
-# Lista szczegółowych zadań i ich status
-tasks = [
-    ("✅ Stworzenie repozytorium i integracja z Render", 100),
-    ("🧠 Implementacja interfejsu użytkownika (GUI)", 70),
-    ("🛠 AI do analizy kosztów remontu", 50),
-    ("📍 Integracja map z lokalizacją", 40),
-    ("🔍 Filtrowanie ofert + analiza opłacalności", 65),
-    ("🧾 Generowanie logów i historii analiz", 80),
-    ("📤 Wysyłanie raportów na Telegram", 90)
-]
+# 📊 Funkcja generująca szczegółowy raport
+def get_progress_report():
+    return (
+        "📊 Raport postępu prac nad botem nieruchomości:\n"
+        "— Pobieranie danych z serwisów: ✅ 100%\n"
+        "— Wyszukiwanie okazji: 🟡 70%\n"
+        "— Szacowanie kosztów remontu: 🟡 40%\n"
+        "— GUI z mapą: 🟠 25%\n"
+        "— Tryb AI predykcji wartości: 🔜 10%\n"
+        "— System rekomendacji: 🔜 5%\n"
+        "\n🕒 Ostatnia aktualizacja: "
+        + datetime.datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%Y-%m-%d %H:%M:%S")
+    )
 
-# Funkcja generująca raport
-def generate_report():
-    report = "📊 *Szczegółowy raport prac nad Botem Nieruchomości:*\n\n"
-    for task, progress in tasks:
-        report += f"{task} — *{progress}%*\n"
-    report += f"\n🕒 Ostatnia aktualizacja: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    return report
+# 🕑 Automatyczny raport
+def send_report(context):
+    report = get_progress_report()
+    context.bot.send_message(chat_id=CHAT_ID, text=report)
 
-# Komenda /postep
-def postep(update: Update, context: CallbackContext):
-    update.message.reply_text(generate_report(), parse_mode="Markdown")
+# 🧠 Komenda: /postep
+def postep(update, context):
+    update.message.reply_text(get_progress_report())
 
-# Komenda /zadaj_pytanie
-def zadaj_pytanie(update: Update, context: CallbackContext):
-    update.message.reply_text("💬 Prześlij pytanie, a przekażę je do mistrza ChatGPT!")
+# 📈 Komenda: /raport
+def raport(update, context):
+    update.message.reply_text("📌 Oczekuj raportu automatycznego lub wpisz /postep, by uzyskać bieżący stan.")
 
-# Komenda /raport
-def raport(update: Update, context: CallbackContext):
-    update.message.reply_text("📨 Kolejny raport zostanie wysłany automatycznie co 2 godziny.")
+# ❓ Komenda: /zadaj
+def pytanie(update, context):
+    update.message.reply_text("✉️ Twoje pytanie zostało zarejestrowane. Przekażę je twórcy!")
 
-# Automatyczne wysyłanie raportu
-def send_report(context: CallbackContext):
-    context.bot.send_message(chat_id=CHAT_ID, text=generate_report(), parse_mode="Markdown")
-
-# Start bota
+# 🚀 Start aplikacji
 def main():
-    updater = Updater(BOT_TOKEN)
-    dispatcher = updater.dispatcher
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
 
-    dispatcher.add_handler(CommandHandler("postep", postep))
-    dispatcher.add_handler(CommandHandler("zadaj_pytanie", zadaj_pytanie))
-    dispatcher.add_handler(CommandHandler("raport", raport))
+    dp.add_handler(CommandHandler("postep", postep))
+    dp.add_handler(CommandHandler("raport", raport))
+    dp.add_handler(CommandHandler("zadaj", pytanie))
 
-    # Harmonogram raportów
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(send_report, 'interval', hours=2, args=[updater.bot])
+    scheduler = BackgroundScheduler(timezone=pytz.timezone('Europe/Warsaw'))
+    scheduler.add_job(send_report, 'interval', hours=2, args=[updater])
     scheduler.start()
 
     updater.start_polling()
