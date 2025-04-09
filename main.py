@@ -1,62 +1,67 @@
 import logging
-import datetime
-import pytz
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, CallbackContext
 from apscheduler.schedulers.background import BackgroundScheduler
-from telegram.ext import Updater, CommandHandler
+from datetime import datetime
+import pytz
+import os
 
-# 🔐 Wklej tutaj swój token bota Telegram
-TOKEN = "7923832536:AAGiHmjAlbeVE-D0sN9rM3StPWfssq43q4U"
+# Konfiguracja logowania
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# 💬 Wklej tutaj swoje CHAT_ID (np. 123456789)
-CHAT_ID = 8044783655
+# Twój Chat ID i Token
+TOKEN = '7923832536:AAGiHmjAlbeVE-D0sN9rM3StPWfssq43q4U'
+CHAT_ID = 8044783655  # <- Wklej swoje chat_id z Telegrama
 
-# 📋 Konfiguracja logowania
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
+# Harmonogram prac - tutaj aktualizujesz ręcznie lub automatyzujesz z gita
+HARMONOGRAM = [
+    ("🔧 Przygotowanie środowiska", 100),
+    ("📦 Struktura plików + GitHub", 100),
+    ("📡 Bot Telegram działa 24/7 na Render", 100),
+    ("🧠 Analiza AI remontu", 40),
+    ("🗺️ Interfejs z mapą i wykresami", 30),
+    ("📊 Filtrowanie okazji + AI wyceny", 25),
+    ("📁 Historia + logi + eksporty", 70),
+    ("⚙️ Tryb „Tylko okazje komornicze”", 10),
+    ("📨 Panel + powiadomienia", 50),
+    ("🧪 Testy + UX", 15)
+]
 
-# 📊 Funkcja generująca szczegółowy raport
-def get_progress_report():
-    return (
-        "📊 Raport postępu prac nad botem nieruchomości:\n"
-        "— Pobieranie danych z serwisów: ✅ 100%\n"
-        "— Wyszukiwanie okazji: 🟡 70%\n"
-        "— Szacowanie kosztów remontu: 🟡 40%\n"
-        "— GUI z mapą: 🟠 25%\n"
-        "— Tryb AI predykcji wartości: 🔜 10%\n"
-        "— System rekomendacji: 🔜 5%\n"
-        "\n🕒 Ostatnia aktualizacja: "
-        + datetime.datetime.now(pytz.timezone('Europe/Warsaw')).strftime("%Y-%m-%d %H:%M:%S")
-    )
+def format_report() -> str:
+    report = "📊 *Szczegółowy raport z prac nad botem nieruchomości:*\n\n"
+    total = 0
+    for etap, procent in HARMONOGRAM:
+        report += f"{etap}: `{procent}%`\n"
+        total += procent
+    overall = total // len(HARMONOGRAM)
+    report += f"\n🔁 _Łączny postęp projektu:_ *{overall}%*"
+    return report
 
-# 🕑 Automatyczny raport
-def send_report(context):
-    report = get_progress_report()
-    context.bot.send_message(chat_id=CHAT_ID, text=report)
+def send_report(bot):
+    now = datetime.now(pytz.timezone("Europe/Warsaw"))
+    text = format_report() + f"\n\n🕒 Raport wygenerowany: `{now.strftime('%Y-%m-%d %H:%M:%S')}`"
+    bot.send_message(chat_id=CHAT_ID, text=text, parse_mode='Markdown')
 
-# 🧠 Komenda: /postep
-def postep(update, context):
-    update.message.reply_text(get_progress_report())
+def postep(update: Update, context: CallbackContext):
+    update.message.reply_text(format_report(), parse_mode='Markdown')
 
-# 📈 Komenda: /raport
-def raport(update, context):
-    update.message.reply_text("📌 Oczekuj raportu automatycznego lub wpisz /postep, by uzyskać bieżący stan.")
+def raport(update: Update, context: CallbackContext):
+    now = datetime.now(pytz.timezone("Europe/Warsaw"))
+    update.message.reply_text(format_report() + f"\n🕒 {now.strftime('%H:%M:%S')}", parse_mode='Markdown')
 
-# ❓ Komenda: /zadaj
-def pytanie(update, context):
-    update.message.reply_text("✉️ Twoje pytanie zostało zarejestrowane. Przekażę je twórcy!")
+def zadanie(update: Update, context: CallbackContext):
+    update.message.reply_text("🧠 Wyślij pytanie, a przekażę je dalej do mistrza umysłów. ✉️")
 
-# 🚀 Start aplikacji
 def main():
-    updater = Updater(TOKEN, use_context=True)
+    updater = Updater(TOKEN)
     dp = updater.dispatcher
-
     dp.add_handler(CommandHandler("postep", postep))
     dp.add_handler(CommandHandler("raport", raport))
-    dp.add_handler(CommandHandler("zadaj", pytanie))
+    dp.add_handler(CommandHandler("zadaj_pytanie", zadanie))
 
-    scheduler = BackgroundScheduler(timezone=pytz.timezone('Europe/Warsaw'))
-    scheduler.add_job(send_report, 'interval', hours=2, args=[updater])
+    # Harmonogram wysyłki raportów co 2h
+    scheduler = BackgroundScheduler(timezone=pytz.timezone("Europe/Warsaw"))
+    scheduler.add_job(send_report, 'interval', hours=2, args=[updater.bot])
     scheduler.start()
 
     updater.start_polling()
@@ -64,5 +69,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
